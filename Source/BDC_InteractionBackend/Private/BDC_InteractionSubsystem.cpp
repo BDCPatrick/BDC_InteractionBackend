@@ -220,7 +220,11 @@ void UBDC_InteractionSubsystem::UpdateInteractionFocuses()
         }
 
         ReceiversDifference = ReceiversFittings;
-        OnFocusesUpdated.Broadcast();
+        OnFocusesUpdated.Broadcast(ReceiversFittings.Num() > 0);
+		if(InstigatorHold)
+		{
+			InstigatorHold->OnFocusesUpdated.Broadcast(ReceiversFittings.Num() > 0);
+		}
     }
 }
 
@@ -250,4 +254,5 @@ void UBDC_InteractionSubsystem::UpdateInteractionFits()
 			}
 		}
 	}
+
 }
