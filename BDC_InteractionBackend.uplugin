@@ -1,0 +1,27 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "1.0",
+  "FriendlyName": "BDC Interaction backend",
+  "Description": "A backend Interatcion Subsystem for easy Blueprint integration.",
+  "Category": "BDC_Plugins",
+  "CreatedBy": "BDC_Patrick",
+  "CreatedByURL": "https://blackdevilcreations.de",
+  "DocsURL": "",
+  "MarketplaceURL": "",
+  "SupportURL": "",
+  "CanContainContent": false,
+  "IsBetaVersion": false,
+  "IsExperimentalVersion": false,
+  "Installed": false,
+  "Modules": [
+    {
+      "Name": "BDC_InteractionBackend",
+      "Type": "Runtime",
+      "LoadingPhase": "Default",
+      "PlatformAllowList": [
+        "Win64"
+      ]
+    }
+  ]
+}
