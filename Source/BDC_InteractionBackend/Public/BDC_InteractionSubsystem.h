@@ -18,7 +18,7 @@
 class UInteractionInstigatorComponent;
 class UInteractionReceiverComponent;
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnFocusesUpdated);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnFocusesUpdated, bool, HasAnyFocus);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnTriggeredInteraction);
 
 UCLASS()
@@ -136,4 +136,5 @@ public:
 	*/
 	UFUNCTION(BlueprintCallable, Category="BDC|Interaction|Subsystem")
 	void UpdateInteractionFits();
+
 };
