@@ -17,6 +17,7 @@
 #include "InteractionInstigator.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTriggeredInteraction UInteractionReceiverComponent, OnReceiver);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnFocusesUpdated, bool, HasAnyFocus);
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class BDC_INTERACTIONBACKEND_API UInteractionInstigatorComponent : public UActorComponent
@@ -28,6 +29,9 @@ public:
 	
 	UPROPERTY(BlueprintAssignable, Category = "BDC|Interaction|Receiver|Events")
 	FOnTriggeredInteraction OnTriggeredInteraction;
+
+	UPROPERTY(BlueprintAssignable, Category = "BDC|Interaction|Receiver|Events")
+	FOnFocusesUpdated OnFocusesUpdated;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="BDC|Interaction|Instigator|Value")
 	FGameplayTag InstigatorMainTag;
@@ -40,4 +44,5 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+
 };
