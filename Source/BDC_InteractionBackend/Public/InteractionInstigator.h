@@ -25,25 +25,32 @@ class BDC_INTERACTIONBACKEND_API UInteractionInstigatorComponent : public UActor
 {
 	GENERATED_BODY()
 
-public:	
+public:
 	UInteractionInstigatorComponent();
-	
+
 	UPROPERTY(BlueprintAssignable, Category = "BDC|Interaction|Receiver|Events")
 	FOnHasTriggeredInteraction OnTriggeredInteraction;
 
 	UPROPERTY(BlueprintAssignable, Category = "BDC|Interaction|Receiver|Events")
 	FOnFocusesUpdated OnFocusesUpdated;
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="BDC|Interaction|Instigator|Value")
 	FGameplayTag InstigatorMainTag;
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="BDC|Interaction|Instigator|Value")
 	FGameplayTagContainer InstigatorTags;
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="BDC|Interaction|Instigator|Value")
 	FName InstigatorIdentity;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BDC|Interaction|Instigator|Debug", meta=(ExposeOnSpawn="true"))
+	bool bDrawDebug = false;
+
+	UFUNCTION(BlueprintCallable, Category = "BDC|Interaction|Instigator|Debug")
+	void SetDebugDrawing(bool bEnable);
 
 protected:
 	virtual void BeginPlay() override;
 
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 };
