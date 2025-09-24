@@ -12,6 +12,8 @@
 #include "BDC_InteractionSubsystem.h"
 #include "GameFramework/GameModeBase.h"
 #include "Kismet/GameplayStatics.h"
+#include "Engine/World.h"
+#include "Engine/GameInstance.h"
 
 
 UInteractionInstigatorComponent::UInteractionInstigatorComponent()
@@ -21,6 +23,7 @@ UInteractionInstigatorComponent::UInteractionInstigatorComponent()
 
 void UInteractionInstigatorComponent::BeginPlay()
 {
+    bAutoActivate = true;
 	Super::BeginPlay();
 
     if (UWorld* World = GetWorld())

@@ -16,7 +16,7 @@
 #include "GameplayTagContainer.h"
 #include "InteractionReceiver.generated.h"
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnReceivedInteractionSignature, UInteractionInstigatorComponent, ByInstigator);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnReceivedInteractionSignature, UInteractionInstigatorComponent*, ByInstigator);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnReceivedFocusSignature, int32, AsIndex);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnLostFocusSignature);
 

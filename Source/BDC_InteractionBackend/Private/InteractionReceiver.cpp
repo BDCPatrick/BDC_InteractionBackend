@@ -10,8 +10,9 @@
  */
 #include "InteractionReceiver.h"
 #include "BDC_InteractionSubsystem.h"
-#include "GameFramework/GameModeBase.h"
 #include "Kismet/GameplayStatics.h"
+#include "Engine/World.h"
+#include "Engine/GameInstance.h"
 
 UInteractionReceiverComponent::UInteractionReceiverComponent()
 {
@@ -20,6 +21,7 @@ UInteractionReceiverComponent::UInteractionReceiverComponent()
 
 void UInteractionReceiverComponent::BeginPlay()
 {
+    bAutoActivate = true;
 	Super::BeginPlay();
 
     if (UWorld* World = GetWorld())

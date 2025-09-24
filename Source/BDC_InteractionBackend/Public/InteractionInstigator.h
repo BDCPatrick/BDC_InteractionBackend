@@ -14,10 +14,11 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "GameplayTagContainer.h"
+#include "BDC_InteractionSubsystem.h"
+
 #include "InteractionInstigator.generated.h"
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTriggeredInteraction UInteractionReceiverComponent, OnReceiver);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnFocusesUpdated, bool, HasAnyFocus);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnHasTriggeredInteraction, UInteractionReceiverComponent*, AtReceiver);
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class BDC_INTERACTIONBACKEND_API UInteractionInstigatorComponent : public UActorComponent
@@ -28,7 +29,7 @@ public:
 	UInteractionInstigatorComponent();
 	
 	UPROPERTY(BlueprintAssignable, Category = "BDC|Interaction|Receiver|Events")
-	FOnTriggeredInteraction OnTriggeredInteraction;
+	FOnHasTriggeredInteraction OnTriggeredInteraction;
 
 	UPROPERTY(BlueprintAssignable, Category = "BDC|Interaction|Receiver|Events")
 	FOnFocusesUpdated OnFocusesUpdated;
