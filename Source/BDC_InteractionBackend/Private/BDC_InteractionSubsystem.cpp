@@ -14,14 +14,25 @@
 #include "InteractionReceiver.h"
 #include "Engine/Engine.h"
 #include "GameFramework/Actor.h"
+#include "DrawDebugHelpers.h"
+#include "Engine/World.h"
+#include "Engine/GameInstance.h"
+
+static void BDC_Interaction_OnWorldTick(UWorld* World, ELevelTick TickType, float DeltaTime);
 
 void UBDC_InteractionSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
+ WorldTickHandle = FWorldDelegates::OnWorldPostActorTick.AddStatic(&BDC_Interaction_OnWorldTick);
 }
 
 void UBDC_InteractionSubsystem::Deinitialize()
 {
+	if (WorldTickHandle.IsValid())
+	{
+		FWorldDelegates::OnWorldPostActorTick.Remove(WorldTickHandle);
+		WorldTickHandle.Reset();
+	}
 	Super::Deinitialize();
 }
 
@@ -69,7 +80,7 @@ void UBDC_InteractionSubsystem::SetInteractionFallOff(float NewAngle)
 
 void UBDC_InteractionSubsystem::SetInstigatorRotation(float NewRotation)
 {
-	InteractRotation = NewRotation;
+	InteractRotation = FMath::UnwindDegrees(NewRotation);
 }
 
 void UBDC_InteractionSubsystem::SetInstigatorLocation(const FVector& NewWorldLocation)
@@ -82,6 +93,11 @@ void UBDC_InteractionSubsystem::ClearInstigatorLocationOverride()
 {
 	bHasInstigatorLocationOverride = false;
 	InstigatorLocationOverride = FVector::ZeroVector;
+}
+
+void UBDC_InteractionSubsystem::RequestFocusUpdatePostTick()
+{
+	bDeferredFocusUpdateRequested = true;
 }
 
 float UBDC_InteractionSubsystem::Move2D_ToDir(const FVector2D& MovementInput, int32 NumberOfDirections) const
@@ -150,16 +166,18 @@ void UBDC_InteractionSubsystem::GetFittingReceivers(TArray<UInteractionReceiverC
 
 void UBDC_InteractionSubsystem::TriggerInteractionBestFitting()
 {
-	UpdateInteractionFits();
+	if (ReceiversFittings.Num() == 0)
+	{
+		UpdateInteractionFits();
+	}
 
 	if (!InstigatorHold) return;
 	if (!bHasInstigatorLocationOverride) return;
-	if (InteractRotation < 0.f) return;
 	if (ReceiversFittings.Num() == 0) return;
 
 	const FVector InstLoc = InstigatorLocationOverride;
-	const FVector FacingForward = FRotationMatrix(FRotator(0.f, InteractRotation, 0.f)).GetUnitAxis(EAxis::X);
-
+	const FVector FacingForward = FRotationMatrix(FRotator(0.f, InteractRotation + RotationYawOffsetDegrees, 0.f)).GetUnitAxis(EAxis::X);
+	
 	int32 BestIdx = INDEX_NONE;
 	float BestScore = -FLT_MAX;
 
@@ -167,8 +185,8 @@ void UBDC_InteractionSubsystem::TriggerInteractionBestFitting()
 	{
 		UInteractionReceiverComponent* Receiver = ReceiversFittings[i];
 		if (!Receiver || !Receiver->GetOwner()) continue;
-
-		FVector Delta = Receiver->GetOwner()->GetActorLocation() - InstLoc; Delta.Z = 0.f;
+		
+		FVector Delta = Receiver->GetInteractionWorldLocation() - InstLoc; Delta.Z = 0.f;
 		const float Dist = Delta.Size();
 		float Dot = 0.f;
 		if (Dist > KINDA_SMALL_NUMBER)
@@ -283,28 +301,105 @@ void UBDC_InteractionSubsystem::UpdateInteractionFits()
 
 	if (!InstigatorHold) return;
 	if (!bHasInstigatorLocationOverride) return; 
-	if (InteractRotation < 0.f) return;
 
 	const FVector InstLoc = InstigatorLocationOverride;
 	const FVector FacingForward = FRotationMatrix(FRotator(0.f, InteractRotation, 0.f)).GetUnitAxis(EAxis::X);
-	const float CosThreshold = FMath::Cos(FMath::DegreesToRadians(FMath::Clamp(InteractFallOff, 0.f, 180.f)));
+	
+	const float HalfFovDeg = FMath::Clamp(InteractFallOff * 0.5f, 0.f, 180.f);
+	const float CosThreshold = FMath::Cos(FMath::DegreesToRadians(HalfFovDeg));
 	const float Range = FMath::Max(0.f, InteractRange);
 
 	for (UInteractionReceiverComponent* Receiver : ReceiversHold)
 	{
 		if (!Receiver || !Receiver->GetOwner()) continue;
-		FVector Delta = Receiver->GetOwner()->GetActorLocation() - InstLoc; Delta.Z = 0.f;
+		const FVector Surface = Receiver->GetSurfacePointToward(InstLoc);
+		FVector Delta = Surface - InstLoc; Delta.Z = 0.f;
 		const float Dist = Delta.Size();
 		if (Dist > Range) continue;
 
-		float Dot = 1.f;
+		bool bWithinFov = true;
 		if (Dist > KINDA_SMALL_NUMBER)
 		{
-			Dot = FMath::Clamp(FVector::DotProduct(FacingForward, Delta / Dist), -1.f, 1.f);
+			const double YawToReceiver = FMath::RadiansToDegrees(FMath::Atan2((double)Delta.Y, (double)Delta.X));
+			const double ForwardYaw = (double)(InteractRotation + RotationYawOffsetDegrees);
+			const double DeltaYaw = FMath::Abs(FMath::FindDeltaAngleDegrees(ForwardYaw, YawToReceiver));
+			bWithinFov = (DeltaYaw <= (double)HalfFovDeg);
 		}
-		if (Dot >= CosThreshold)
+		if (bWithinFov)
 		{
 			ReceiversFittings.Add(Receiver);
+		}
+	}
+}
+
+static void BDC_Interaction_OnWorldTick(UWorld* World, ELevelTick TickType, float DeltaTime)
+{
+	if (!World) return;
+	if (UGameInstance* GameInstance = World->GetGameInstance())
+	{
+		if (UBDC_InteractionSubsystem* Subsystem = GameInstance->GetSubsystem<UBDC_InteractionSubsystem>())
+		{
+			Subsystem->DebugTick(World);
+		}
+	}
+}
+
+void UBDC_InteractionSubsystem::DebugTick(UWorld* World)
+{
+	if (!World) return;
+
+	if (bDeferredFocusUpdateRequested)
+	{
+		bDeferredFocusUpdateRequested = false;
+		UpdateInteractionFocuses();
+	}
+
+	// Draw instigator debug cone
+	if (InstigatorHold && InstigatorHold->bDrawDebug && bHasInstigatorLocationOverride)
+	{
+		const FVector Location = InstigatorLocationOverride;
+		const float VisualYaw = InteractRotation + RotationYawOffsetDegrees;
+		const float Range = InteractRange;
+		// InteractFallOff is a full FOV; cone API expects half-angles
+		const float HalfFovDeg = FMath::Clamp(InteractFallOff * 0.5f, 0.f, 180.f);
+		const FVector Direction = FRotationMatrix(FRotator(0.f, VisualYaw, 0.f)).GetUnitAxis(EAxis::X);
+		DrawDebugCone(World, Location, Direction, Range, FMath::DegreesToRadians(HalfFovDeg), FMath::DegreesToRadians(HalfFovDeg), 12, FColor::Green, false, -1.f, 0, 1.f);
+	}
+
+	// Draw receiver LookAt debug lines
+	if (bHasInstigatorLocationOverride)
+	{
+		const FVector InstLoc = InstigatorLocationOverride;
+		const float Range = FMath::Max(0.f, InteractRange);
+		for (const UInteractionReceiverComponent* Receiver : ReceiversHold)
+		{
+			if (!Receiver || !Receiver->GetOwner()) continue;
+			if (!Receiver->bDrawDebugDirection) continue;
+			const FVector Surface = Receiver->GetSurfacePointToward(InstLoc);
+			const FVector Dir = (InstLoc - Surface).GetSafeNormal();
+			const FVector End = Surface + Dir * Range;
+			DrawDebugLine(World, Surface, End, FColor::Blue, false, -1.f, 0, 2.f);
+
+			// Optional: draw bounds box
+			if (Receiver->bDrawDebugBounds)
+			{
+				const FVector Center = Receiver->GetInteractionWorldLocation();
+				const USceneComponent* Basis = Receiver->TrackingComponent ? Receiver->TrackingComponent : (Receiver->GetOwner() ? Receiver->GetOwner()->GetRootComponent() : nullptr);
+				const FQuat Rot = Basis ? Basis->GetComponentQuat() : FQuat::Identity;
+				DrawDebugBox(World, Center, Receiver->BoundsExtent, Rot, FColor::Emerald, false, -1.f, 0, 1.f);
+			}
+
+			// Extra debug: show planar distance/angle and pass/fail against current FOV (using surface)
+			const FVector PlanarDelta = FVector(Surface.X - InstLoc.X, Surface.Y - InstLoc.Y, 0.f);
+			const float DistXY = FVector(PlanarDelta.X, PlanarDelta.Y, 0.f).Size();
+			const double YawToReceiver = FMath::RadiansToDegrees(FMath::Atan2((double)PlanarDelta.Y, (double)PlanarDelta.X));
+			const double ForwardYaw = (double)(InteractRotation + RotationYawOffsetDegrees);
+			const float HalfFovDeg = FMath::Clamp(InteractFallOff * 0.5f, 0.f, 180.f);
+			const double DeltaYaw = FMath::Abs(FMath::FindDeltaAngleDegrees(ForwardYaw, YawToReceiver));
+			const bool bPass = (DistXY <= Range) && (DeltaYaw <= (double)HalfFovDeg);
+			const bool bInFits = ReceiversFittings.Contains(const_cast<UInteractionReceiverComponent*>(Receiver));
+			const FString Info = FString::Printf(TEXT("Dist=%.1f dYaw=%.1f FOV/2=%.1f Pass=%s InFits=%s Rot=%.1f LocOv=%s"), DistXY, (float)DeltaYaw, HalfFovDeg, bPass ? TEXT("Y") : TEXT("N"), bInFits ? TEXT("Y") : TEXT("N"), InteractRotation, bHasInstigatorLocationOverride ? TEXT("Y") : TEXT("N"));
+			DrawDebugString(World, Surface + FVector(0,0,30.f), Info, nullptr, (bPass && bInFits) ? FColor::Green : (bPass ? FColor::Yellow : FColor::Red), 0.f, false);
 		}
 	}
 }

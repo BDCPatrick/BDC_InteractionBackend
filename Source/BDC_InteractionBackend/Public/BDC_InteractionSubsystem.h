@@ -12,6 +12,7 @@
 
 #include "CoreMinimal.h"
 #include "Subsystems/GameInstanceSubsystem.h"
+#include "Engine/EngineTypes.h"
 #include "BDC_InteractionSubsystem.generated.h"
 
 class UInteractionInstigatorComponent;
@@ -34,7 +35,10 @@ private:
 	float InteractRange = 100.0f;
 	
 	UPROPERTY()
-	float InteractFallOff = 30.0f;
+	float InteractFallOff = 60.0f;
+	
+	UPROPERTY(EditAnywhere, Category="BDC|Interaction|Subsystem|Setup")
+	float RotationYawOffsetDegrees = 0.0f;
 	
 	UPROPERTY()
 	FVector InstigatorLocationOverride = FVector::ZeroVector;
@@ -53,278 +57,250 @@ private:
 	TArray<UInteractionReceiverComponent*> ReceiversFittings;
 	UPROPERTY()
 	TArray<UInteractionReceiverComponent*> ReceiversDifference;
+
+	UPROPERTY(Transient)
+	bool bDeferredFocusUpdateRequested = false;
 	
 public:
     virtual void Initialize(FSubsystemCollectionBase& Collection) override;
     virtual void Deinitialize() override;
-	
+	FDelegateHandle WorldTickHandle;
+	void DebugTick(UWorld* World);
+
+	/**
+	 * Triggered when the focus states of elements are updated.
+	 * This event is typically invoked to signal that the focus status has changed,
+	 * allowing dependent systems or components to react to the new focus configuration.
+	 *
+	 * It can be used to handle updates like UI focus shifts, input redirection, or visual indicators.
+	 */
 	UPROPERTY(BlueprintAssignable, Category = "BDC|Interaction|Subsystem|Events")
 	FOnFocusesUpdated OnFocusesUpdated;
-	
+
+	/**
+	 * Triggers and manages interactions when a specified condition or event occurs.
+	 * This is used to handle and encapsulate logic related to activated interactions.
+	 */
 	UPROPERTY(BlueprintAssignable, Category = "BDC|Interaction|Subsystem|Events")
 	FOnTriggeredInteraction OnTriggeredInteraction;
 
 
 	/**
-	 * Converts a 2D movement input vector into a quantized directional angle in degrees based on the specified number of directions.
+	 * Moves an object in a 2D space towards a specified direction.
+	 * This method is used to update the position based on the given direction vector.
 	 *
-	 * @param MovementInput A 2D vector representing the input movement direction.
-	 * @param NumberOfDirections The number of discrete directions to quantize the angle into.
-	 *        If set to 0 or less, the method will return the exact direction angle in degrees.
-	 *
-	 * @return The calculated direction in degrees, either quantized to the nearest sector defined by
-	 *         the number of directions or the exact angle if no quantization is specified.
-	 *         Returns 0.0f if the input vector is approximately zero (no movement).
+	 * @param Direction A vector representing the direction of movement in the 2D space.
+	 * @return The updated position after the movement.
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category="BDC|Interaction|Subsystem|Math", DisplayName="2DMoveToDir")
 	float Move2D_ToDir(const FVector2D& MovementInput, int32 NumberOfDirections = 0) const;
 
 	/**
-	 * Sets the current instigator for the interaction subsystem.
+	 * Sets the actor instigator responsible for initiating an action or event.
+	 * This can be used to track which actor caused a specific interaction or behavior.
 	 *
-	 * @param NewInstigator The interaction instigator component to set as the current instigator.
+	 * @param InstigatorActor The actor that is initiating the action or event.
 	 */
 	void SetInstigator(UInteractionInstigatorComponent* NewInstigator);
 
 	/**
-	 * Sets the rotation of the instigator in the interaction subsystem.
+	 * Sets the instigator's rotation to a specified orientation.
+	 * This can be used to update the instigator's facing direction within the game world.
 	 *
-	 * @param NewRotation The new desired rotation value to be assigned for the instigator.
+	 * @param NewRotation The desired rotation to be applied to the instigator
 	 */
 	UFUNCTION(BlueprintCallable, Category="BDC|Interaction|Subsystem")
 	void SetInstigatorRotation(float NewRotation);
 
 	/**
-	 * Updates the instigator's world location and marks the instigator location override as valid.
+	 * Sets the location of the instigator, typically representing the source or origin of an action or event.
+	 * This method defines the specific position to associate with the instigator.
 	 *
-	 * @param NewWorldLocation The new world position to set for the instigator.
+	 * @param NewLocation The new location to assign to the instigator.
 	 */
 	UFUNCTION(BlueprintCallable, Category="BDC|Interaction|Subsystem")
 	void SetInstigatorLocation(const FVector& NewWorldLocation);
 
 	/**
-	 * Resets the instigator location override to its default state.
-	 *
-	 * This function clears any previously set location override for the instigator
-	 * within the interaction subsystem. Specifically, it sets the `bHasInstigatorLocationOverride`
-	 * flag to `false` and resets the `InstigatorLocationOverride` vector to `FVector::ZeroVector`.
-	 *
-	 * This is used to remove any custom-defined override and restore the default behavior
-	 * of determining the instigator location dynamically.
+	 * Clears any previously set instigator location override, resetting it to its default behavior.
+	 * This ensures that the instigator's location is no longer overridden during relevant calculations.
 	 */
 	UFUNCTION(BlueprintCallable, Category="BDC|Interaction|Subsystem")
 	void ClearInstigatorLocationOverride();
 
 	/**
-	 * Adds a new receiver component to the interaction subsystem.
+	 * Requests an update for focus management to occur after the current tick.
+	 * This ensures that any focus-related changes are processed at the appropriate time.
+	 */
+	UFUNCTION(BlueprintCallable, Category="BDC|Interaction|Subsystem|Focus")
+	void RequestFocusUpdatePostTick();
+
+	/**
+	 * Adds a receiver to handle specific events or messages.
+	 * This allows the system to send notifications or data to the designated receiver.
 	 *
-	 * This function ensures the provided receiver is valid and adds it to the `ReceiversHold` list
-	 * while removing any invalid entries from the list. If the receiver is already present, it will
-	 * not be added again.
-	 *
-	 * @param NewReceiver Pointer to the UInteractionReceiverComponent instance to be added.
+	 * @param Receiver The object or component intended to receive the events or messages.
 	 */
 	void AddReceiver(UInteractionReceiverComponent* NewReceiver);
 
 	/**
-	 * Removes the specified interaction receiver from the subsystem's management.
+	 * Removes the specified receiver from the current configuration.
+	 * This is used to detach or unregister a receiver from the system.
 	 *
-	 * This function removes the given receiver component from multiple internal arrays
-	 * that track active receivers, receiver fittings, and receiver differences. If the
-	 * specified receiver is the most recently interacted receiver, the subsystem sets
-	 * the recently interacted receiver to null.
-	 *
-	 * @param ReceiverToRemove The interaction receiver component to remove. If null, this function does nothing.
+	 * @param Receiver The receiver object to be removed.
 	 */
 	void RemoveReceiver(UInteractionReceiverComponent* ReceiverToRemove);
 
 	/**
-	 * Sets the interaction range for the interaction subsystem.
+	 * Sets the maximum range within which interactions can be initiated.
+	 * This determines how far an object or entity can be to allow interaction.
 	 *
-	 * @param NewRange The new range value to be set for interaction. Must be a non-negative value.
+	 * @param Range The interaction range to set, specified in units.
 	 */
 	UFUNCTION(BlueprintCallable, meta=(ClampMin="0"), Category="BDC|Interaction|Subsystem|Setup")
 	void SetInteractionRange(float NewRange = 100.0f);
 
 	/**
-	 * Updates the interaction fall-off angle for the interaction subsystem.
+	 * Sets the falloff distance for interaction effects, controlling the range at which interaction influence diminishes.
 	 *
-	 * This function adjusts the value of the fall-off angle, which determines the angle
-	 * within which interactions are considered valid. It is used to modify the interaction
-	 * system's parameters based on gameplay needs.
-	 *
-	 * @param NewAngle The new fall-off angle value to set. It must be within the range defined in the associated metadata.
+	 * @param FallOffDistance The distance beyond which interaction effects decrease or cease.
 	 */
 	UFUNCTION(BlueprintCallable, meta=(ClampMin="0", ClampMax="360"), Category="BDC|Interaction|Subsystem|Setup")
 	void SetInteractionFallOff(float NewAngle = 15.0f);
 
 	/**
-	 * Retrieves the most recent receiver involved in the interaction subsystem.
+	 * Sets the yaw offset for rotation to align the interaction reference orientation.
+	 * This can be used to adjust the reference direction (e.g., aligning 0° to a specific axis).
+	 *
+	 * @param NewOffsetDegrees The new yaw offset in degrees to apply to the interaction system's rotation reference.
+	 */
+	UFUNCTION(BlueprintCallable, Category="BDC|Interaction|Subsystem|Setup")
+	void SetRotationYawOffset(float NewOffsetDegrees) { RotationYawOffsetDegrees = NewOffsetDegrees; }
+
+	/**
+	 * Retrieves the current yaw offset for rotation that aligns the interaction reference orientation.
+	 *
+	 * @return The current yaw offset in degrees.
+	 */
+	UFUNCTION(BlueprintPure, Category="BDC|Interaction|Subsystem|Setup")
+	float GetRotationYawOffset() const { return RotationYawOffsetDegrees; }
+
+	/**
+	 * Retrieves the range within which interactions are possible.
+	 * This range typically defines the maximum distance an entity can interact with an object.
+	 *
+	 * @return The interaction range as a floating-point value.
+	 */
+	UFUNCTION(BlueprintPure, Category="BDC|Interaction|Subsystem|Setup")
+	float GetInteractionRange() const { return InteractRange; }
+
+	/**
+	 * Retrieves the falloff distance for the interaction, which determines how interaction strength decreases with distance.
+	 *
+	 * @return The falloff distance value for the interaction.
+	 */
+	UFUNCTION(BlueprintPure, Category="BDC|Interaction|Subsystem|Setup")
+	float GetInteractionFallOff() const { return InteractFallOff; }
+
+	/**
+	 * Checks whether there is a location override for the instigator.
+	 *
+	 * @return True if a location override exists for the instigator, false otherwise.
+	 */
+	UFUNCTION(BlueprintPure, Category="BDC|Interaction|Subsystem|State")
+	bool HasInstigatorLocationOverride() const { return bHasInstigatorLocationOverride; }
+
+	/**
+	 * Retrieves the location of the actor responsible for initiating the action or event.
+	 *
+	 * @return The location of the instigator as a vector. If no instigator is present, the result may be undefined.
+	 */
+	UFUNCTION(BlueprintPure, Category="BDC|Interaction|Subsystem|State")
+	FVector GetInstigatorLocation() const { return InstigatorLocationOverride; }
+
+	/**
+	 * Retrieves the current rotation of the interaction instigator.
+	 *
+	 * @return The rotation of the interaction instigator as a float value.
+	 */
+	UFUNCTION(BlueprintPure, Category="BDC|Interaction|Subsystem|State")
+	float GetInstigatorRotation() const { return InteractRotation; }
+
+	/**
+	 * Retrieves the most recent receiver details or object.
+	 *
+	 * @param receiverCount The maximum number of recent receivers to consider.
 	 */
 	UFUNCTION(BlueprintPure, Category="BDC|Interaction|Subsystem")
 	void GetRecentReceiver(UInteractionReceiverComponent*& ReceiverComponent, AActor*& ReceiverActor, bool& bIsvalid);
 
 	/**
-	 * Retrieves a collection of receivers that are deemed suitable based on predefined criteria.
+	 * Retrieves the list of receivers that are suitable or compatible based on specific criteria.
+	 *
+	 * @param Criteria The conditions or parameters used to evaluate and filter the compatible receivers.
 	 */
 	UFUNCTION(BlueprintPure, Category="BDC|Interaction|Subsystem")
 	void GetFittingReceivers(TArray<UInteractionReceiverComponent*>& ReceiverComponent, TArray<AActor*>& ReceiverActor, bool& bIsvalid);
 
 	/**
-	 * Triggers the interaction with the best-fitting receiver based on the current context
-	 * and instigator's parameters. This method identifies the closest and most relevant
-	 * interaction receiver component by scoring potential interactions with respect to
-	 * spatial and directional alignment.
+	 * Determines the best-fitting interaction for a given trigger event based on the provided conditions.
+	 * This method evaluates all possible interactions and selects the one that best matches the specified criteria.
 	 *
-	 * This method performs the following steps:
-	 * - Updates the list of interaction fits.
-	 * - Validates the preconditions such as the presence of an instigator, valid location,
-	 *   and suitable interaction rotation.
-	 * - Calculates a score for each interaction receiver based on proximity and directional
-	 *   alignment in comparison to the instigator.
-	 * - Chooses the receiver with the best score and broadcasts the corresponding interaction events.
-	 * - Updates the recent receiver to the best-fitting receiver.
-	 *
-	 * Preconditions:
-	 * - InstigatorHold must be set.
-	 * - The instigator's location override must be valid and bHasInstigatorLocationOverride
-	 *   must be true.
-	 * - InteractRotation must be a valid positive value.
-	 * - ReceiversFittings array must contain at least one valid receiver component.
-	 *
-	 * Postconditions:
-	 * - On success, triggers interaction events for the best-fitting receiver and the instigator.
-	 * - Updates the RecentReceiver property if a valid receiver is found.
-	 * - If no suitable receiver is found, no events are triggered.
-	 *
-	 * Note:
-	 * - The scoring function prioritizes receivers based on directional alignment to the
-	 *   instigator's facing direction, penalizing excessive distance.
+	 * @param TriggerEvent The event that initiated the trigger, containing contextual data.
+	 * @param Conditions A set of conditions used to assess the suitability of potential interactions.
+	 * @return The best-fitting interaction that meets the conditions, or null if no suitable interaction is found.
 	 */
 	UFUNCTION(BlueprintCallable, Category="BDC|Interaction|Subsystem")
 	void TriggerInteractionBestFitting();
 
 	/**
-	 * Triggers an interaction for the currently held interaction index, if valid.
+	 * Triggers an interaction event while holding down a specified input.
+	 * This method provides functionality to activate and maintain an interaction sequence until the input is released.
 	 *
-	 * This function first updates the list of fitting interaction receivers by
-	 * calling the UpdateInteractionFits() method. If the current HoldIndex
-	 * corresponds to a valid index within the list of fitting receivers, it
-	 * triggers the interaction associated with that index by calling
-	 * TriggerInteractionOnIndex().
+	 * @param HoldDuration The duration for which the interaction should be maintained while the input is held.
 	 */
 	UFUNCTION(BlueprintCallable, Category="BDC|Interaction|Subsystem")
 	void TriggerInteractionOnHold();
 
 	/**
-	 * Triggers an interaction event based on the specified index.
+	 * Triggers an interaction event based on a specified index.
+	 * This is used to activate or perform an interaction tied to the given index.
 	 *
-	 * This function verifies the validity of an instigator and updates the available interaction fittings.
-	 * If the provided index is valid within the `ReceiversFittings` array, the function proceeds to
-	 * broadcast interaction events between the instigator and the receiver at the specified index.
-	 *
-	 * @param OnIndex The index of the interaction receiver within the `ReceiversFittings` array.
-	 *                This parameter is passed by reference to ensure it is immutable within the function scope.
-	 *
-	 * Precondition:
-	 * - The instigator (`InstigatorHold`) must be valid.
-	 * - `UpdateInteractionFits` is invoked to refresh the interaction fittings list.
-	 * - The provided index (`OnIndex`) must correspond to a valid entry in the `ReceiversFittings` array.
-	 *
-	 * Behavior:
-	 * - Validates if the index (`OnIndex`) exists within the `ReceiversFittings` array.
-	 * - Establishes the interaction between `InstigatorHold` and the receiver component at the specified index.
-	 * - Broadcasts the `OnReceivedInteraction` event on the receiver and the `OnTriggeredInteraction` event
-	 *   on the instigator.
-	 * - Triggers the subsystem-wide `OnTriggeredInteraction` event.
-	 *
-	 * Postcondition:
-	 * - `RecentReceiver` is updated to point to the receiver component at the provided index.
-	 * - Interaction events are broadcasted, enabling other components subscribing to these events
-	 *   to react accordingly.
-	 *
-	 * Notes:
-	 * - If the index is invalid or the instigator is null, the function will exit without executing.
+	 * @param Index The index of the interaction to trigger.
 	 */
 	UFUNCTION(BlueprintCallable, Category="BDC|Interaction|Subsystem")
 	void TriggerInteractionOnIndex(const int32& OnIndex);
 
 	/**
-	 * Updates the hold receiver index if the provided index is non-negative.
+	 * Sets the receiver index that will be held for operations or interactions.
+	 * This specifies which receiver should be targeted or activated.
 	 *
-	 * This function sets the `HoldIndex` of the interaction subsystem to the value
-	 * of `NewIndex` if `NewIndex` is greater than or equal to zero. The `HoldIndex`
-	 * determines which receiver within the subsystem's internal list is marked
-	 * as being actively held or interacted with.
-	 *
-	 * @param NewIndex The new index to set for the hold receiver. Must be greater
-	 *                 than or equal to zero to be accepted.
+	 * @param ReceiverIndex The index of the receiver to hold.
 	 */
 	UFUNCTION(BlueprintCallable, meta=(ClampMin="0"), Category="BDC|Interaction|Subsystem")
 	void SetHoldReceiverIndex(int32 NewIndex);
 
 	/**
-	 * Retrieves the current index of the receiver being held.
+	 * Retrieves the index of the hold receiver associated with this object.
+	 * This index can be used to look up or manage hold-related operations.
 	 *
-	 * @param CurrentIndex Reference to an integer where the current hold index will be stored.
-	 *                     This value corresponds to the `HoldIndex` maintained by the Interaction Subsystem.
+	 * @param None
 	 */
 	UFUNCTION(BlueprintPure, Category="BDC|Interaction|Subsystem")
 	void GetHoldReceiverIndex(int32& CurrentIndex);
 
 	/**
-	 * Updates the current interaction focuses by determining which interaction receivers
-	 * have been gained or lost focus and broadcasting the respective events.
-	 *
-	 * This function performs the following operations:
-	 * - Calls UpdateInteractionFits() to refresh the list of fitting receivers.
-	 * - Compares the updated receiver list with the previous list to calculate:
-	 *   * New receivers that have gained focus.
-	 *   * Lost receivers that have lost focus.
-	 * - For new receivers, broadcasts OnReceivedFocus events.
-	 * - For lost receivers, broadcasts OnLostFocus events.
-	 * - Updates ReceiversDifference to reflect the current state of fitting receivers.
-	 * - Broadcasts OnFocusesUpdated events to inform about the focus changes.
-	 * - Additionally, if InstigatorHold is valid, it will invoke OnFocusesUpdated on it.
-	 *
-	 * Preconditions:
-	 * - InstigatorHold must be set and have a valid owner for the method to execute focus updates.
-	 * - ReceiversFittings and ReceiversDifference must be valid collections for comparison.
-	 *
-	 * Postconditions:
-	 * - Updates the internal state of ReceiversDifference.
-	 * - Fires appropriate focus-related events based on receiver changes.
-	 *
-	 * Intended to ensure that interaction focus management is kept up-to-date based
-	 * on changes in the surrounding environment and the instigator's state.
+	 * Updates the current interaction focuses based on the latest state or context.
+	 * This function ensures that interaction focuses are correctly recalculated
+	 * or adjusted as needed by the system.
 	 */
 	UFUNCTION(BlueprintCallable, Category="BDC|Interaction|Subsystem")
 	void UpdateInteractionFocuses();
 
 	/**
-	 * Updates the list of interaction candidates (ReceiversFittings) based on certain conditions such as
-	 * the instigator's location, range, and rotation.
-	 * Filters eligible receivers from the ReceiversHold array to compute the current valid interaction targets.
-	 *
-	 * Conditions for a receiver to be added to ReceiversFittings:
-	 * - The receiver is valid and has an owner.
-	 * - The distance between the receiver and the instigator's location is within the specified interaction range.
-	 * - The angle between the forward direction of the instigator and the direction to the receiver is within the specified threshold.
-	 *
-	 * This method is used by several other functions in the system to determine valid interaction targets dynamically.
-	 *
-	 * Private member variables involved:
-	 * - InstigatorLocationOverride: The location used as the basis for interaction checks.
-	 * - InteractRotation: The rotation used to determine the forward direction.
-	 * - InteractRange: The maximum range within which receivers are considered valid.
-	 * - InteractFallOff: The angle threshold for valid interaction.
-	 * - ReceiversHold: The array of potential receivers before filtering.
-	 * - ReceiversFittings: The filtered list of valid receivers.
-	 *
-	 * This method does the following:
-	 * - Clears the existing ReceiversFittings array.
-	 * - Verifies preconditions such as valid InstigatorHold and InstigatorLocationOverride.
-	 * - Iterates through ReceiversHold and applies distance and angle checks to filter valid receivers.
+	 * Updates the interaction fit parameters based on the current state.
+	 * This ensures that the interaction configuration is recalculated
+	 * to match the desired alignment or operational constraints.
 	 */
 	UFUNCTION(BlueprintCallable, Category="BDC|Interaction|Subsystem")
 	void UpdateInteractionFits();

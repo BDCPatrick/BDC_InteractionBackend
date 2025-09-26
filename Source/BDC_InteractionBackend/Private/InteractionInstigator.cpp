@@ -16,10 +16,9 @@
 #include "Engine/GameInstance.h"
 #include "DrawDebugHelpers.h"
 
-
 UInteractionInstigatorComponent::UInteractionInstigatorComponent()
 {
-	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bCanEverTick = false;
 	PrimaryComponentTick.bStartWithTickEnabled = false;
 }
 
@@ -37,8 +36,6 @@ void UInteractionInstigatorComponent::BeginPlay()
             }
         }
     }
-
-	SetComponentTickEnabled(bDrawDebug);
 }
 
 void UInteractionInstigatorComponent::SetDebugDrawing(bool bEnable)
