@@ -11,6 +11,7 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "GameplayTagContainer.h"
+#include "Components/SceneComponent.h"
 #include "InteractionReceiver.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnReceivedInteraction, AActor*, OfInstigator, FName, OfInstigatorName, FGameplayTagContainer, OfInstigatedTags);

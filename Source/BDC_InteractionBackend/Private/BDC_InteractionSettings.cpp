@@ -14,7 +14,7 @@ UBDC_InteractionSettings::UBDC_InteractionSettings()
 	SectionName = TEXT("BDC Interaction");
 	
 	InteractionRange = 200.0f;
-	InteractionFoV = 60.0f
+	InteractionFoV = 60.0f;
 }
 
 #if WITH_EDITOR

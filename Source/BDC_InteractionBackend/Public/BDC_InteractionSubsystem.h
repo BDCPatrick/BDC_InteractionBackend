@@ -9,6 +9,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Components/InteractionReceiver.h"
+#include "GameFramework/Actor.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "BDC_InteractionSubsystem.generated.h"
 
@@ -24,9 +26,9 @@ struct FInteractionReceivers
 	UInteractionReceiverComponent* ReceiverComponent;
 };
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnFoundReceivers, TArray<ReceiversInField*>, NewReceivers);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnLostReceivers, TArray<ReceiversInField*>, ReceiversGone);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnInteractionFired, ReceiversInField*, OnReceivers);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnFoundReceivers, TArray<FInteractionReceivers*>, NewReceivers);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnLostReceivers, TArray<FInteractionReceivers*>, ReceiversGone);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnInteractionFired, FInteractionReceivers*, OnReceivers);
 
 UCLASS()
 class BDC_INTERACTIONBACKEND_API UBDC_InteractionSubsystem : public UGameInstanceSubsystem
@@ -35,7 +37,7 @@ class BDC_INTERACTIONBACKEND_API UBDC_InteractionSubsystem : public UGameInstanc
 	
 private:
 	UPROPERTY()
-	FTranform InstigatorTransform = FTransform();
+	FTransform InstigatorTransform = FTransform();
 
 	UPROPERTY()
 	FInteractionReceivers LastInteractedWith;
