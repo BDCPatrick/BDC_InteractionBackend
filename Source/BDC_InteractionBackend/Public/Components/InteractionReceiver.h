@@ -25,7 +25,7 @@ class BDC_INTERACTIONBACKEND_API UInteractionReceiverComponent : public UActorCo
 	
 private:
 	UPROPERTY()
-	USceneComponent ReceiverComponent;
+	USceneComponent* ReceiverComponent;
 
 public:
 	UInteractionReceiverComponent();
@@ -48,7 +48,6 @@ public:
 	UPROPERTY(BlueprintReadWrite, Editanywhere, Category = "BDC|Interaction|Receiver")
 	bool bAlltagsHaveToBepresent = false;
 	
-	// TODO: checks if ReceiverComponent is valid. if yes, return its WorldTransform. If not valid, return the World transform of the owning actor of this receiver Component.
 	UFUNCTION(BlueprintCallable, Category="BDC|Interaction|Event")
 	FTransform GetReceiverTransform();
 	

@@ -7,5 +7,45 @@
  * and are used with permission.
  */
 #include "Components/InteractionInstigator.h"
+#include "BDC_InteractionSubsystem.h"
+#include "Engine/World.h"
+#include "Engine/GameInstance.h"
 
-/* Start of TODO: This Component has to be Auto Activated and Replicated!*/
+UInteractionInstigatorComponent::UInteractionInstigatorComponent()
+{
+	PrimaryComponentTick.bCanEverTick = false;
+	bAutoActivate = true;
+	SetIsReplicatedByDefault(true);
+}
+
+void UInteractionInstigatorComponent::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (const UWorld* World = GetWorld())
+	{
+		if (const UGameInstance* GI = World->GetGameInstance())
+		{
+			if (UBDC_InteractionSubsystem* Subsystem = GI->GetSubsystem<UBDC_InteractionSubsystem>())
+			{
+				Subsystem->AddInstigator(this);
+			}
+		}
+	}
+}
+
+void UInteractionInstigatorComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (const UWorld* World = GetWorld())
+	{
+		if (const UGameInstance* GI = World->GetGameInstance())
+		{
+			if (UBDC_InteractionSubsystem* Subsystem = GI->GetSubsystem<UBDC_InteractionSubsystem>())
+			{
+				Subsystem->RemoveInstigator(this);
+			}
+		}
+	}
+
+	Super::EndPlay(EndPlayReason);
+}

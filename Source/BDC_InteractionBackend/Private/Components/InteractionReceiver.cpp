@@ -7,12 +7,67 @@
  * and are used with permission.
  */
 #include "Components/InteractionReceiver.h"
+#include "BDC_InteractionSubsystem.h"
+#include "GameFramework/Actor.h"
+#include "Engine/World.h"
+#include "Engine/GameInstance.h"
 
-/* Start of TODO: This Component has to be Auto Activated and Replicated!*/
+UInteractionReceiverComponent::UInteractionReceiverComponent()
+{
+	PrimaryComponentTick.bCanEverTick = false;
+	bAutoActivate = true;
+	SetIsReplicatedByDefault(true);
+}
 
-/* Start of TODO: On BeginPlay, the Receiver Component needs to search the owning Actor's Component Hierarchy for the first one with the name NameOfInteractionComponent.
-* If found, it has to hold the reference to this Component in ReceiverComponent.
-* If not found, set ReceiverComponent nullptr.
-*
-* The Receiver should also register itself in UBDC_InteractionSubsystem.ReceiversOfLevel, by calling UBDC_InteractionSubsystem::AddReceiver.
-*/
+FTransform UInteractionReceiverComponent::GetReceiverTransform()
+{
+	if (ReceiverComponent)
+	{
+		return ReceiverComponent->GetComponentTransform();
+	}
+
+	if (const AActor* Owner = GetOwner())
+	{
+		return Owner->GetActorTransform();
+	}
+
+	return FTransform::Identity;
+}
+
+void UInteractionReceiverComponent::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (const AActor* Owner = GetOwner())
+	{
+		TArray<USceneComponent*> SceneComponents;
+		Owner->GetComponents<USceneComponent>(SceneComponents);
+
+		for (USceneComponent* Component : SceneComponents)
+		{
+			if (Component && Component->GetFName() == NameOfInteractionComponent)
+			{
+				ReceiverComponent = Component;
+				break;
+			}
+		}
+	}
+
+	if (UBDC_InteractionSubsystem* Subsystem = GetWorld()->GetGameInstance()->GetSubsystem<UBDC_InteractionSubsystem>())
+	{
+		FInteractionReceivers NewReceiver;
+		NewReceiver.InteractionActor = GetOwner();
+		NewReceiver.InteractionComponent = this;
+		Subsystem->AddReceiver(NewReceiver);
+	}
+}
+
+void UInteractionReceiverComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (UBDC_InteractionSubsystem* Subsystem = GetWorld()->GetGameInstance()->GetSubsystem<UBDC_InteractionSubsystem>())
+	{
+		Subsystem->RemoveReceiver(this);
+	}
+
+	Super::EndPlay(EndPlayReason);
+}

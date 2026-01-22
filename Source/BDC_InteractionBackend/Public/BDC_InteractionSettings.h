@@ -23,8 +23,7 @@ public:
 	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category="Interaction")
 	float InteractionRange;
 	
-	// TODO: Needs Min of 1 and Max of 360
-	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category="Interaction")
+	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category="Interaction", meta = (ClampMin = "1", ClampMax = "360"))
 	float InteractionFoV;
 	
 public:

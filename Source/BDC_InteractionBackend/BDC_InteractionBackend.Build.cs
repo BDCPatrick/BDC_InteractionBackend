@@ -20,7 +20,8 @@ public class BDC_InteractionBackend : ModuleRules
 			{
 				"Core",
 				"Engine",
-				"GameplayTags"
+				"GameplayTags",
+				"DeveloperSettings"
 			}
 		);
 			
