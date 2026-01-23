@@ -8,6 +8,7 @@
  */
 #include "BDC_InteractionSubsystem.h"
 
+#include "DrawDebugHelpers.h"
 #include "BDC_InteractionSettings.h"
 #include "Components/InteractionInstigator.h"
 #include "Components/InteractionReceiver.h"
@@ -54,9 +55,14 @@ void UBDC_InteractionSubsystem::UpdateInteractions(FVector InstigatorLocation, F
 	TArray<UInteractionReceiverComponent*> RemovedReceivers;
 
 	AActor* InstigatorActor = Instigator ? Instigator->GetOwner() : nullptr;
-	const FName InstigatorName = Instigator ? Instigator->NameOfInstigator : NAME_None;
 
-	FCollisionQueryParams TraceParams(FName(TEXT("UpdateInteractionTrace")), false, InstigatorActor);
+	if (!Instigator && InstigatorsOfLevel.Num() > 0)
+	{
+		Instigator = InstigatorsOfLevel[0];
+		InstigatorActor = Instigator->GetOwner();
+	}
+
+	const FName FinalInstigatorName = Instigator ? Instigator->NameOfInstigator : NAME_None;
 
 	for (const FInteractionReceivers& ReceiverData : ReceiversOfLevel)
 	{
@@ -65,35 +71,44 @@ void UBDC_InteractionSubsystem::UpdateInteractions(FVector InstigatorLocation, F
 
 		const FVector ReceiverLocation = ReceiverComp->GetReceiverTransform().GetLocation();
 		const float DistanceXY = FVector::DistXY(InstigatorLocation, ReceiverLocation);
-		const float EffectiveDistanceXY = FMath::Max(0.0f, DistanceXY - ReceiverComp->ReceiverRadius);
 
-		if (EffectiveDistanceXY <= Settings->InteractionRange)
+		if (const float EffectiveDistanceXY = FMath::Max(0.0f, DistanceXY - ReceiverComp->ReceiverRadius); EffectiveDistanceXY <= Settings->InteractionRange)
 		{
 			FHitResult HitResult;
+			FCollisionQueryParams TraceParams(FName(TEXT("UpdateInteractionTrace")), true, InstigatorActor);
+			
 			const bool bHit = World->LineTraceSingleByChannel(HitResult, InstigatorLocation, ReceiverLocation, ECC_Visibility, TraceParams);
-			const bool bLineOfSightClear = !bHit || (HitResult.GetActor() == ReceiverData.InteractionActor);
 
-			if (bLineOfSightClear)
+			if (const bool bLineOfSightClear = !bHit || HitResult.GetActor() == ReceiverData.InteractionActor)
 			{
 				NewReceiversInField.Add(ReceiverComp);
 				if (!ReceiversInField.Contains(ReceiverComp))
 				{
 					AddedReceivers.Add(ReceiverComp);
-					ReceiverComp->OnEntersInteractionField.Broadcast(InstigatorActor, InstigatorName);
+					ReceiverComp->OnEntersInteractionField.Broadcast(InstigatorActor, FinalInstigatorName);
 				}
+			}
+			else if (bHit)
+			{
+				// UE_LOG(LogTemp, Warning, TEXT("[Interaction] Trace hit %s instead of %s"), *HitResult.GetActor()->GetName(), *ReceiverData.InteractionActor->GetName());
 			}
 		}
 	}
 
 	TArray<UInteractionReceiverComponent*> NewReceiversInView;
-	const FVector InstigatorForward = InstigatorRotation.Vector();
+	FRotator AdjustedInstigatorRotation = InstigatorRotation;
+	if (Instigator)
+	{
+		AdjustedInstigatorRotation.Yaw += Instigator->InstigatorOffsetViewRotation;
+	}
+	const FVector InstigatorForward = AdjustedInstigatorRotation.Vector();
 	const float HalfFoVInRadians = FMath::DegreesToRadians(Settings->InteractionFoV * 0.5f);
 	const float MinDotProduct = FMath::Cos(HalfFoVInRadians);
 
 	for (UInteractionReceiverComponent* Receiver : NewReceiversInField)
 	{
 		const FVector ReceiverLocation = Receiver->GetReceiverTransform().GetLocation();
-		const FVector DirectionToReceiver = (ReceiverLocation - InstigatorLocation).GetSafeNormal();
+		const FVector DirectionToReceiver = (ReceiverLocation - InstigatorLocation).GetSafeNormal2D();
 
 		if (const float DotProduct = FVector::DotProduct(InstigatorForward, DirectionToReceiver); DotProduct >= MinDotProduct)
 		{
@@ -152,19 +167,55 @@ void UBDC_InteractionSubsystem::UpdateInteractions(FVector InstigatorLocation, F
 		CurrentBestFittingReceiver.InteractionActor = NewBestReceiver ? NewBestReceiver->GetOwner() : nullptr;
 	}
 
-	for (UInteractionReceiverComponent* Receiver : ReceiversInField)
+	if (Instigator)
 	{
-		if (!NewReceiversInField.Contains(Receiver))
+		RemovedReceivers.Empty();
+		for (UInteractionReceiverComponent* Receiver : ReceiversInField)
 		{
-			RemovedReceivers.Add(Receiver);
-			if (Receiver)
+			if (!NewReceiversInField.Contains(Receiver))
 			{
-				Receiver->OnLeavesInteractionField.Broadcast(InstigatorActor, InstigatorName);
+				RemovedReceivers.Add(Receiver);
+				if (Receiver)
+				{
+					Receiver->OnLeavesInteractionField.Broadcast(InstigatorActor, FinalInstigatorName);
+				}
 			}
 		}
 	}
 
 	ReceiversInField = NewReceiversInField;
+
+	for (UInteractionInstigatorComponent* InstigatorComp : InstigatorsOfLevel)
+	{
+		if (InstigatorComp && InstigatorComp->bShowDebugging)
+		{
+			const FVector CurrentInstigatorLocation = InstigatorComp->GetInstigatorTransform().GetLocation();
+			FRotator CurrentInstigatorRotation = InstigatorComp->GetInstigatorTransform().Rotator();
+			CurrentInstigatorRotation.Yaw += InstigatorComp->InstigatorOffsetViewRotation;
+			
+			const FVector DebugLocation = CurrentInstigatorLocation + FVector(0, 0, 10);
+
+			DrawDebugCircle(World, DebugLocation, Settings->InteractionRange, 36, FColor::Yellow, false, -1, 0, 2, FVector(1, 0, 0), FVector(0, 1, 0), false);
+
+			const float HalfFoVInDegrees = Settings->InteractionFoV * 0.5f;
+			const FVector Forward = CurrentInstigatorRotation.Vector();
+			const FVector RightBound = Forward.RotateAngleAxis(HalfFoVInDegrees, FVector::UpVector);
+			const FVector LeftBound = Forward.RotateAngleAxis(-HalfFoVInDegrees, FVector::UpVector);
+
+			DrawDebugLine(World, DebugLocation, DebugLocation + RightBound * Settings->InteractionRange, FColor::Red, false, -1, 0, 2);
+			DrawDebugLine(World, DebugLocation, DebugLocation + LeftBound * Settings->InteractionRange, FColor::Red, false, -1, 0, 2);
+
+			constexpr int32 ArcSegments = 12;
+			FVector LastPoint = DebugLocation + LeftBound * Settings->InteractionRange;
+			for (int32 i = 1; i <= ArcSegments; ++i)
+			{
+				const float CurrentAngle = -HalfFoVInDegrees + (Settings->InteractionFoV * i / ArcSegments);
+				const FVector CurrentPoint = DebugLocation + Forward.RotateAngleAxis(CurrentAngle, FVector::UpVector) * Settings->InteractionRange;
+				DrawDebugLine(World, LastPoint, CurrentPoint, FColor::Red, false, -1, 0, 2);
+				LastPoint = CurrentPoint;
+			}
+		}
+	}
 
 	if (AddedReceivers.Num() > 0)
 	{

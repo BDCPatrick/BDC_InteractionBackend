@@ -28,17 +28,23 @@ private:
 public:
 	UInteractionInstigatorComponent();
 
-	UPROPERTY(BlueprintReadWrite, Editanywhere, Category = "BDC|Interaction|Receiver")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "BDC|Interaction|Instigator")
 	FName NameOfInteractionComponent = FName("CapsuleComponent");
-	UPROPERTY(BlueprintReadWrite, Editanywhere, Category = "BDC|Interaction|Instigator")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "BDC|Interaction|Instigator")
 	FName NameOfInstigator = FName("Nancy");
-	UPROPERTY(BlueprintReadWrite, Editanywhere, Category = "BDC|Interaction|Instigator")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "BDC|Interaction|Instigator")
 	FGameplayTag TagOfInstigator = FGameplayTag();
-	UPROPERTY(BlueprintReadWrite, Editanywhere, Category = "BDC|Interaction|Instigator")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "BDC|Interaction|Instigator")
 	FGameplayTagContainer InstigatingTags = FGameplayTagContainer();
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "BDC|Interaction|Instigator")
+	float InstigatorOffsetViewRotation = 0.0f;
+	
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "BDC|Interaction|Debug")
+	bool bShowDebugging = false;
 	
 	UFUNCTION(BlueprintCallable, Category="BDC|Interaction|Event")
-	FTransform GetInstigatorTransform();
+	FTransform GetInstigatorTransform() const;
 
 protected:
 	virtual void BeginPlay() override;

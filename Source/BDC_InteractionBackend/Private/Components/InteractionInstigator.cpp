@@ -18,7 +18,7 @@ UInteractionInstigatorComponent::UInteractionInstigatorComponent()
 	SetIsReplicatedByDefault(true);
 }
 
-FTransform UInteractionInstigatorComponent::GetInstigatorTransform()
+FTransform UInteractionInstigatorComponent::GetInstigatorTransform() const
 {
 	if (InstigatorComponent)
 	{
