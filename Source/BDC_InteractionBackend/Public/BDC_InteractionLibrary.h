@@ -49,11 +49,16 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "BDC|Interaction|Library", meta = (WorldContext = "WorldContextObject"))
 	static void GetInstigatorByName(const UObject* WorldContextObject, FName OfInstigatorName, FInteractionReceivers& Instigator);
-	
-	/* Start of TODO: Add missing functions form Subsystem:
-	* static void GetAllReceiversInView(TArray<FInteractionReceivers>& OutReceiversInView) const; //Pure
-	* static void CalcNextBest();
-	* static void CalcPrevBest();
-	* static void GetCurrentBestFitting(FInteractionReceivers& BestFit) const; //Pure
-	*/ 
+
+	UFUNCTION(BlueprintPure, Category = "BDC|Interaction|Library", meta = (WorldContext = "WorldContextObject"))
+	static void GetAllReceiversInView(const UObject* WorldContextObject, TArray<FInteractionReceivers>& OutReceiversInView);
+
+	UFUNCTION(BlueprintCallable, Category = "BDC|Interaction|Library", meta = (WorldContext = "WorldContextObject"))
+	static void CalcNextBest(const UObject* WorldContextObject);
+
+	UFUNCTION(BlueprintCallable, Category = "BDC|Interaction|Library", meta = (WorldContext = "WorldContextObject"))
+	static void CalcPrevBest(const UObject* WorldContextObject);
+
+	UFUNCTION(BlueprintPure, Category = "BDC|Interaction|Library", meta = (WorldContext = "WorldContextObject"))
+	static void GetCurrentBestFitting(const UObject* WorldContextObject, FInteractionReceivers& BestFit);
 };

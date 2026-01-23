@@ -7,6 +7,7 @@
  * and are used with permission.
  */
 #include "BDC_InteractionSettings.h"
+#include "UObject/UnrealType.h"
 
 UBDC_InteractionSettings::UBDC_InteractionSettings()
 {

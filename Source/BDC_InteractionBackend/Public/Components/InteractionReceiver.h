@@ -46,18 +46,18 @@ public:
 	UPROPERTY(BlueprintReadWrite, Editanywhere, Category = "BDC|Interaction|Receiver")
 	FName NameOfInteractionComponent = FName("CapsuleComponent");
 	UPROPERTY(BlueprintReadWrite, Editanywhere, Category = "BDC|Interaction|Receiver")
-	FName NameOfReiceiver = FName("Steven");
+	FName NameOfReceiver = FName("Steven");
 	UPROPERTY(BlueprintReadWrite, Editanywhere, Category = "BDC|Interaction|Receiver")
 	FGameplayTag TagOfReceiver = FGameplayTag();
 	UPROPERTY(BlueprintReadWrite, Editanywhere, Category = "BDC|Interaction|Receiver")
 	FGameplayTagContainer OnlyInteractOnTag = FGameplayTagContainer();
 	UPROPERTY(BlueprintReadWrite, Editanywhere, Category = "BDC|Interaction|Receiver")
-	bool bAlltagsHaveToBepresent = false;
+	bool bAllTagsHaveToBePresent = false;
 	UPROPERTY(BlueprintReadWrite, Editanywhere, Category = "BDC|Interaction|Receiver")
 	float ReceiverRadius = 25.0f;
 	
 	UFUNCTION(BlueprintCallable, Category="BDC|Interaction|Event")
-	FTransform GetReceiverTransform();
+	FTransform GetReceiverTransform() const;
 	
 protected:
 	virtual void BeginPlay() override;

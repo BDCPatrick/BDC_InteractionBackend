@@ -94,17 +94,16 @@ void UBDC_InteractionSubsystem::UpdateInteractions(FVector InstigatorLocation, F
 	{
 		const FVector ReceiverLocation = Receiver->GetReceiverTransform().GetLocation();
 		const FVector DirectionToReceiver = (ReceiverLocation - InstigatorLocation).GetSafeNormal();
-		const float DotProduct = FVector::DotProduct(InstigatorForward, DirectionToReceiver);
 
-		if (DotProduct >= MinDotProduct)
+		if (const float DotProduct = FVector::DotProduct(InstigatorForward, DirectionToReceiver); DotProduct >= MinDotProduct)
 		{
 			NewReceiversInView.Add(Receiver);
 		}
 	}
 
 	NewReceiversInView.Sort([InstigatorLocation](const UInteractionReceiverComponent& A, const UInteractionReceiverComponent& B) {
-		const float DistA = FMath::Max(0.0f, FVector::DistXY(InstigatorLocation, A.GetReceiverTransform().GetLocation()) - A.ReceiverRadius);
-		const float DistB = FMath::Max(0.0f, FVector::DistXY(InstigatorLocation, B.GetReceiverTransform().GetLocation()) - B.ReceiverRadius);
+		const float DistA = FMath::Max(0.0f, FVector::Dist2D(InstigatorLocation, A.GetReceiverTransform().GetLocation()) - A.ReceiverRadius);
+		const float DistB = FMath::Max(0.0f, FVector::Dist2D(InstigatorLocation, B.GetReceiverTransform().GetLocation()) - B.ReceiverRadius);
 		return DistA < DistB;
 	});
 
@@ -137,9 +136,7 @@ void UBDC_InteractionSubsystem::UpdateInteractions(FVector InstigatorLocation, F
 		CurrentBestReceiverIndex = 0;
 	}
 
-	UInteractionReceiverComponent* OldBestReceiver = Cast<UInteractionReceiverComponent>(CurrentBestFittingReceiver.InteractionComponent);
-
-	if (OldBestReceiver != NewBestReceiver)
+	if (UInteractionReceiverComponent* OldBestReceiver = Cast<UInteractionReceiverComponent>(CurrentBestFittingReceiver.InteractionComponent); OldBestReceiver != NewBestReceiver)
 	{
 		if (OldBestReceiver)
 		{
@@ -194,7 +191,7 @@ void UBDC_InteractionSubsystem::GetReceiverByTag(FGameplayTag OfReceiverTag, FIn
 {
 	for (const FInteractionReceivers& R : ReceiversOfLevel)
 	{
-		if (UInteractionReceiverComponent* Comp = Cast<UInteractionReceiverComponent>(R.InteractionComponent))
+		if (const UInteractionReceiverComponent* Comp = Cast<UInteractionReceiverComponent>(R.InteractionComponent))
 		{
 			if (Comp->TagOfReceiver == OfReceiverTag)
 			{
@@ -212,7 +209,7 @@ void UBDC_InteractionSubsystem::GetReceiverByName(FName OfReceiverName, FInterac
 	{
 		if (UInteractionReceiverComponent* Comp = Cast<UInteractionReceiverComponent>(R.InteractionComponent))
 		{
-			if (Comp->NameOfReiceiver == OfReceiverName)
+			if (Comp->NameOfReceiver == OfReceiverName)
 			{
 				ReceiverData = R;
 				return;
@@ -297,16 +294,14 @@ void UBDC_InteractionSubsystem::CalcNextBest()
 {
 	if (ReceiversInView.Num() <= 1) return;
 
-	UInteractionReceiverComponent* OldBestReceiver = Cast<UInteractionReceiverComponent>(CurrentBestFittingReceiver.InteractionComponent);
-	if (OldBestReceiver)
+	if (const UInteractionReceiverComponent* OldBestReceiver = Cast<UInteractionReceiverComponent>(CurrentBestFittingReceiver.InteractionComponent))
 	{
 		OldBestReceiver->OnIsNotBestFitting.Broadcast();
 	}
 
 	CurrentBestReceiverIndex = (CurrentBestReceiverIndex + 1) % ReceiversInView.Num();
-	UInteractionReceiverComponent* NewBestReceiver = ReceiversInView[CurrentBestReceiverIndex];
 
-	if (NewBestReceiver)
+	if (UInteractionReceiverComponent* NewBestReceiver = ReceiversInView[CurrentBestReceiverIndex])
 	{
 		NewBestReceiver->OnIsBestFitting.Broadcast();
 		CurrentBestFittingReceiver.InteractionComponent = NewBestReceiver;
@@ -318,16 +313,14 @@ void UBDC_InteractionSubsystem::CalcPrevBest()
 {
 	if (ReceiversInView.Num() <= 1) return;
 
-	UInteractionReceiverComponent* OldBestReceiver = Cast<UInteractionReceiverComponent>(CurrentBestFittingReceiver.InteractionComponent);
-	if (OldBestReceiver)
+	if (const UInteractionReceiverComponent* OldBestReceiver = Cast<UInteractionReceiverComponent>(CurrentBestFittingReceiver.InteractionComponent))
 	{
 		OldBestReceiver->OnIsNotBestFitting.Broadcast();
 	}
 
 	CurrentBestReceiverIndex = (CurrentBestReceiverIndex - 1 + ReceiversInView.Num()) % ReceiversInView.Num();
-	UInteractionReceiverComponent* NewBestReceiver = ReceiversInView[CurrentBestReceiverIndex];
 
-	if (NewBestReceiver)
+	if (UInteractionReceiverComponent* NewBestReceiver = ReceiversInView[CurrentBestReceiverIndex])
 	{
 		NewBestReceiver->OnIsBestFitting.Broadcast();
 		CurrentBestFittingReceiver.InteractionComponent = NewBestReceiver;

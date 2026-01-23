@@ -19,7 +19,7 @@ UInteractionReceiverComponent::UInteractionReceiverComponent()
 	SetIsReplicatedByDefault(true);
 }
 
-FTransform UInteractionReceiverComponent::GetReceiverTransform()
+FTransform UInteractionReceiverComponent::GetReceiverTransform() const
 {
 	if (ReceiverComponent)
 	{

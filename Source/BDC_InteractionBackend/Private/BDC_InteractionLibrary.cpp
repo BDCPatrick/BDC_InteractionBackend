@@ -37,7 +37,7 @@ void UBDC_InteractionLibrary::GetLastInteraction(const UObject* WorldContextObje
 		{
 			if (const UGameInstance* GI = World->GetGameInstance())
 			{
-				if (UBDC_InteractionSubsystem* Subsystem = GI->GetSubsystem<UBDC_InteractionSubsystem>())
+				if (const UBDC_InteractionSubsystem* Subsystem = GI->GetSubsystem<UBDC_InteractionSubsystem>())
 				{
 					Subsystem->GetLastInteraction(LastReceiver);
 				}
@@ -105,7 +105,7 @@ void UBDC_InteractionLibrary::GetAllReceiversOfLevel(const UObject* WorldContext
 		{
 			if (const UGameInstance* GI = World->GetGameInstance())
 			{
-				if (UBDC_InteractionSubsystem* Subsystem = GI->GetSubsystem<UBDC_InteractionSubsystem>())
+				if (const UBDC_InteractionSubsystem* Subsystem = GI->GetSubsystem<UBDC_InteractionSubsystem>())
 				{
 					Subsystem->GetAllReceiversOfLevel(Receivers);
 				}
@@ -122,7 +122,7 @@ void UBDC_InteractionLibrary::GetReceiverByTag(const UObject* WorldContextObject
 		{
 			if (const UGameInstance* GI = World->GetGameInstance())
 			{
-				if (UBDC_InteractionSubsystem* Subsystem = GI->GetSubsystem<UBDC_InteractionSubsystem>())
+				if (const UBDC_InteractionSubsystem* Subsystem = GI->GetSubsystem<UBDC_InteractionSubsystem>())
 				{
 					Subsystem->GetReceiverByTag(OfReceiverTag, Receiver);
 				}
@@ -139,7 +139,7 @@ void UBDC_InteractionLibrary::GetReceiverByName(const UObject* WorldContextObjec
 		{
 			if (const UGameInstance* GI = World->GetGameInstance())
 			{
-				if (UBDC_InteractionSubsystem* Subsystem = GI->GetSubsystem<UBDC_InteractionSubsystem>())
+				if (const UBDC_InteractionSubsystem* Subsystem = GI->GetSubsystem<UBDC_InteractionSubsystem>())
 				{
 					Subsystem->GetReceiverByName(OfReceiverName, Receiver);
 				}
@@ -156,7 +156,7 @@ void UBDC_InteractionLibrary::GetInstigatorByTag(const UObject* WorldContextObje
 		{
 			if (const UGameInstance* GI = World->GetGameInstance())
 			{
-				if (UBDC_InteractionSubsystem* Subsystem = GI->GetSubsystem<UBDC_InteractionSubsystem>())
+				if (const UBDC_InteractionSubsystem* Subsystem = GI->GetSubsystem<UBDC_InteractionSubsystem>())
 				{
 					Subsystem->GetInstigatorByTag(OfInstigatorTag, Instigator);
 				}
@@ -173,9 +173,77 @@ void UBDC_InteractionLibrary::GetInstigatorByName(const UObject* WorldContextObj
 		{
 			if (const UGameInstance* GI = World->GetGameInstance())
 			{
-				if (UBDC_InteractionSubsystem* Subsystem = GI->GetSubsystem<UBDC_InteractionSubsystem>())
+				if (const UBDC_InteractionSubsystem* Subsystem = GI->GetSubsystem<UBDC_InteractionSubsystem>())
 				{
 					Subsystem->GetInstigatorByName(OfInstigatorName, Instigator);
+				}
+			}
+		}
+	}
+}
+
+void UBDC_InteractionLibrary::GetAllReceiversInView(const UObject* WorldContextObject, TArray<FInteractionReceivers>& OutReceiversInView)
+{
+	if (WorldContextObject)
+	{
+		if (const UWorld* World = WorldContextObject->GetWorld())
+		{
+			if (const UGameInstance* GI = World->GetGameInstance())
+			{
+				if (const UBDC_InteractionSubsystem* Subsystem = GI->GetSubsystem<UBDC_InteractionSubsystem>())
+				{
+					Subsystem->GetAllReceiversInView(OutReceiversInView);
+				}
+			}
+		}
+	}
+}
+
+void UBDC_InteractionLibrary::CalcNextBest(const UObject* WorldContextObject)
+{
+	if (WorldContextObject)
+	{
+		if (const UWorld* World = WorldContextObject->GetWorld())
+		{
+			if (const UGameInstance* GI = World->GetGameInstance())
+			{
+				if (UBDC_InteractionSubsystem* Subsystem = GI->GetSubsystem<UBDC_InteractionSubsystem>())
+				{
+					Subsystem->CalcNextBest();
+				}
+			}
+		}
+	}
+}
+
+void UBDC_InteractionLibrary::CalcPrevBest(const UObject* WorldContextObject)
+{
+	if (WorldContextObject)
+	{
+		if (const UWorld* World = WorldContextObject->GetWorld())
+		{
+			if (const UGameInstance* GI = World->GetGameInstance())
+			{
+				if (UBDC_InteractionSubsystem* Subsystem = GI->GetSubsystem<UBDC_InteractionSubsystem>())
+				{
+					Subsystem->CalcPrevBest();
+				}
+			}
+		}
+	}
+}
+
+void UBDC_InteractionLibrary::GetCurrentBestFitting(const UObject* WorldContextObject, FInteractionReceivers& BestFit)
+{
+	if (WorldContextObject)
+	{
+		if (const UWorld* World = WorldContextObject->GetWorld())
+		{
+			if (const UGameInstance* GI = World->GetGameInstance())
+			{
+				if (const UBDC_InteractionSubsystem* Subsystem = GI->GetSubsystem<UBDC_InteractionSubsystem>())
+				{
+					Subsystem->GetCurrentBestFitting(BestFit);
 				}
 			}
 		}
