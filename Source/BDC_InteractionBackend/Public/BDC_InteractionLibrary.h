@@ -23,7 +23,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "BDC|Interaction|Library", meta = (WorldContext = "WorldContextObject"))
 	static void SetInstigator(const UObject* WorldContextObject, UInteractionInstigatorComponent* NewInstigator);
 
-	UFUNCTION(BlueprintCallable, Category = "BDC|Interaction|Library", meta = (WorldContext = "WorldContextObject"))
+	UFUNCTION(BlueprintPure, Category = "BDC|Interaction|Library", meta = (WorldContext = "WorldContextObject"))
 	static void GetLastInteraction(const UObject* WorldContextObject, FInteractionReceivers& LastReceiver);
 
 	UFUNCTION(BlueprintCallable, Category = "BDC|Interaction|Library", meta = (WorldContext = "WorldContextObject"))
@@ -32,21 +32,28 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "BDC|Interaction|Library", meta = (WorldContext = "WorldContextObject"))
 	static void UpdateInteractions(const UObject* WorldContextObject, FVector InstigatorLocation, FRotator InstigatorRotation);
 
-	UFUNCTION(BlueprintCallable, Category = "BDC|Interaction|Library", meta = (WorldContext = "WorldContextObject"))
+	UFUNCTION(BlueprintPure, Category = "BDC|Interaction|Library", meta = (WorldContext = "WorldContextObject"))
 	static void GetAllReceiversField(const UObject* WorldContextObject, TArray<UInteractionReceiverComponent*>& Receivers);
 
-	UFUNCTION(BlueprintCallable, Category = "BDC|Interaction|Library", meta = (WorldContext = "WorldContextObject"))
+	UFUNCTION(BlueprintPure, Category = "BDC|Interaction|Library", meta = (WorldContext = "WorldContextObject"))
 	static void GetAllReceiversOfLevel(const UObject* WorldContextObject, TArray<FInteractionReceivers>& Receivers);
 
-	UFUNCTION(BlueprintCallable, Category = "BDC|Interaction|Library", meta = (WorldContext = "WorldContextObject"))
+	UFUNCTION(BlueprintPure, Category = "BDC|Interaction|Library", meta = (WorldContext = "WorldContextObject"))
 	static void GetReceiverByTag(const UObject* WorldContextObject, FGameplayTag OfReceiverTag, FInteractionReceivers& Receiver);
 
-	UFUNCTION(BlueprintCallable, Category = "BDC|Interaction|Library", meta = (WorldContext = "WorldContextObject"))
+	UFUNCTION(BlueprintPure, Category = "BDC|Interaction|Library", meta = (WorldContext = "WorldContextObject"))
 	static void GetReceiverByName(const UObject* WorldContextObject, FName OfReceiverName, FInteractionReceivers& Receiver);
 
-	UFUNCTION(BlueprintCallable, Category = "BDC|Interaction|Library", meta = (WorldContext = "WorldContextObject"))
+	UFUNCTION(BlueprintPure, Category = "BDC|Interaction|Library", meta = (WorldContext = "WorldContextObject"))
 	static void GetInstigatorByTag(const UObject* WorldContextObject, FGameplayTag OfInstigatorTag, FInteractionReceivers& Instigator);
 
-	UFUNCTION(BlueprintCallable, Category = "BDC|Interaction|Library", meta = (WorldContext = "WorldContextObject"))
+	UFUNCTION(BlueprintPure, Category = "BDC|Interaction|Library", meta = (WorldContext = "WorldContextObject"))
 	static void GetInstigatorByName(const UObject* WorldContextObject, FName OfInstigatorName, FInteractionReceivers& Instigator);
+	
+	/* Start of TODO: Add missing functions form Subsystem:
+	* static void GetAllReceiversInView(TArray<FInteractionReceivers>& OutReceiversInView) const; //Pure
+	* static void CalcNextBest();
+	* static void CalcPrevBest();
+	* static void GetCurrentBestFitting(FInteractionReceivers& BestFit) const; //Pure
+	*/ 
 };
