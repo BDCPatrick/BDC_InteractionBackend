@@ -12,8 +12,9 @@
 #include "Components/InteractionInstigator.h"
 #include "Components/InteractionReceiver.h"
 #include "Engine/World.h"
+#include "CollisionQueryParams.h"
 
-void UBDC_InteractionSubsystem::GetLastInteraction(FInteractionReceivers& LastReceiver)
+void UBDC_InteractionSubsystem::GetLastInteraction(FInteractionReceivers& LastReceiver) const
 {
 	LastReceiver = LastInteractedWith;
 }
@@ -25,36 +26,9 @@ void UBDC_InteractionSubsystem::SetInstigator(UInteractionInstigatorComponent* N
 
 void UBDC_InteractionSubsystem::InjectInteraction()
 {
-	const UBDC_InteractionSettings* Settings = GetDefault<UBDC_InteractionSettings>();
-	if (!Settings || !Instigator) return;
+	if (!Instigator) return;
 
-	UInteractionReceiverComponent* BestReceiver = nullptr;
-	float BestDistance = Settings->InteractionRange;
-
-	const FVector InstigatorLocation = InstigatorTransform.GetLocation();
-	const FVector InstigatorForward = InstigatorTransform.GetRotation().GetForwardVector();
-
-	for (UInteractionReceiverComponent* Receiver : ReceiversInField)
-	{
-		if (!Receiver) continue;
-
-		FVector ReceiverLocation = Receiver->GetReceiverTransform().GetLocation();
-
-		if (const float Distance = FVector::Dist(InstigatorLocation, ReceiverLocation); Distance <= Settings->InteractionRange)
-		{
-			FVector DirectionToReceiver = (ReceiverLocation - InstigatorLocation).GetSafeNormal();
-			const float DotProduct = FVector::DotProduct(InstigatorForward, DirectionToReceiver);
-
-			if (const float Angle = FMath::RadiansToDegrees(FMath::Acos(DotProduct)); Angle <= Settings->InteractionFoV * 0.5f)
-			{
-				if (Distance < BestDistance)
-				{
-					BestDistance = Distance;
-					BestReceiver = Receiver;
-				}
-			}
-		}
-	}
+	UInteractionReceiverComponent* BestReceiver = Cast<UInteractionReceiverComponent>(CurrentBestFittingReceiver.InteractionComponent);
 
 	if (BestReceiver)
 	{
@@ -72,7 +46,8 @@ void UBDC_InteractionSubsystem::UpdateInteractions(FVector InstigatorLocation, F
 	InstigatorTransform.SetRotation(InstigatorRotation.Quaternion());
 
 	const UBDC_InteractionSettings* Settings = GetDefault<UBDC_InteractionSettings>();
-	if (!Settings) return;
+	const UWorld* World = GetWorld();
+	if (!Settings || !World) return;
 
 	TArray<UInteractionReceiverComponent*> NewReceiversInField;
 	TArray<UInteractionReceiverComponent*> AddedReceivers;
@@ -81,22 +56,103 @@ void UBDC_InteractionSubsystem::UpdateInteractions(FVector InstigatorLocation, F
 	AActor* InstigatorActor = Instigator ? Instigator->GetOwner() : nullptr;
 	const FName InstigatorName = Instigator ? Instigator->NameOfInstigator : NAME_None;
 
+	FCollisionQueryParams TraceParams(FName(TEXT("UpdateInteractionTrace")), false, InstigatorActor);
+
 	for (const FInteractionReceivers& ReceiverData : ReceiversOfLevel)
 	{
 		UInteractionReceiverComponent* ReceiverComp = Cast<UInteractionReceiverComponent>(ReceiverData.InteractionComponent);
 		if (!ReceiverComp) continue;
 
-		FVector ReceiverLocation = ReceiverComp->GetReceiverTransform().GetLocation();
+		const FVector ReceiverLocation = ReceiverComp->GetReceiverTransform().GetLocation();
+		const float DistanceXY = FVector::DistXY(InstigatorLocation, ReceiverLocation);
+		const float EffectiveDistanceXY = FMath::Max(0.0f, DistanceXY - ReceiverComp->ReceiverRadius);
 
-		if (const float Distance = FVector::Dist(InstigatorLocation, ReceiverLocation); Distance <= Settings->InteractionRange)
+		if (EffectiveDistanceXY <= Settings->InteractionRange)
 		{
-			NewReceiversInField.Add(ReceiverComp);
-			if (!ReceiversInField.Contains(ReceiverComp))
+			FHitResult HitResult;
+			const bool bHit = World->LineTraceSingleByChannel(HitResult, InstigatorLocation, ReceiverLocation, ECC_Visibility, TraceParams);
+			const bool bLineOfSightClear = !bHit || (HitResult.GetActor() == ReceiverData.InteractionActor);
+
+			if (bLineOfSightClear)
 			{
-				AddedReceivers.Add(ReceiverComp);
-				ReceiverComp->OnEntersInteractionField.Broadcast(InstigatorActor, InstigatorName);
+				NewReceiversInField.Add(ReceiverComp);
+				if (!ReceiversInField.Contains(ReceiverComp))
+				{
+					AddedReceivers.Add(ReceiverComp);
+					ReceiverComp->OnEntersInteractionField.Broadcast(InstigatorActor, InstigatorName);
+				}
 			}
 		}
+	}
+
+	TArray<UInteractionReceiverComponent*> NewReceiversInView;
+	const FVector InstigatorForward = InstigatorRotation.Vector();
+	const float HalfFoVInRadians = FMath::DegreesToRadians(Settings->InteractionFoV * 0.5f);
+	const float MinDotProduct = FMath::Cos(HalfFoVInRadians);
+
+	for (UInteractionReceiverComponent* Receiver : NewReceiversInField)
+	{
+		const FVector ReceiverLocation = Receiver->GetReceiverTransform().GetLocation();
+		const FVector DirectionToReceiver = (ReceiverLocation - InstigatorLocation).GetSafeNormal();
+		const float DotProduct = FVector::DotProduct(InstigatorForward, DirectionToReceiver);
+
+		if (DotProduct >= MinDotProduct)
+		{
+			NewReceiversInView.Add(Receiver);
+		}
+	}
+
+	NewReceiversInView.Sort([InstigatorLocation](const UInteractionReceiverComponent& A, const UInteractionReceiverComponent& B) {
+		const float DistA = FMath::Max(0.0f, FVector::DistXY(InstigatorLocation, A.GetReceiverTransform().GetLocation()) - A.ReceiverRadius);
+		const float DistB = FMath::Max(0.0f, FVector::DistXY(InstigatorLocation, B.GetReceiverTransform().GetLocation()) - B.ReceiverRadius);
+		return DistA < DistB;
+	});
+
+	bool bViewChanged = (ReceiversInView.Num() != NewReceiversInView.Num());
+	if (!bViewChanged)
+	{
+		for (int32 Index = 0; Index < ReceiversInView.Num(); ++Index)
+		{
+			if (ReceiversInView[Index] != NewReceiversInView[Index])
+			{
+				bViewChanged = true;
+				break;
+			}
+		}
+	}
+
+	ReceiversInView = NewReceiversInView;
+
+	UInteractionReceiverComponent* NewBestReceiver = nullptr;
+	if (ReceiversInView.Num() > 0)
+	{
+		if (bViewChanged || !ReceiversInView.IsValidIndex(CurrentBestReceiverIndex))
+		{
+			CurrentBestReceiverIndex = 0;
+		}
+		NewBestReceiver = ReceiversInView[CurrentBestReceiverIndex];
+	}
+	else
+	{
+		CurrentBestReceiverIndex = 0;
+	}
+
+	UInteractionReceiverComponent* OldBestReceiver = Cast<UInteractionReceiverComponent>(CurrentBestFittingReceiver.InteractionComponent);
+
+	if (OldBestReceiver != NewBestReceiver)
+	{
+		if (OldBestReceiver)
+		{
+			OldBestReceiver->OnIsNotBestFitting.Broadcast();
+		}
+
+		if (NewBestReceiver)
+		{
+			NewBestReceiver->OnIsBestFitting.Broadcast();
+		}
+
+		CurrentBestFittingReceiver.InteractionComponent = NewBestReceiver;
+		CurrentBestFittingReceiver.InteractionActor = NewBestReceiver ? NewBestReceiver->GetOwner() : nullptr;
 	}
 
 	for (UInteractionReceiverComponent* Receiver : ReceiversInField)
@@ -124,17 +180,17 @@ void UBDC_InteractionSubsystem::UpdateInteractions(FVector InstigatorLocation, F
 	}
 }
 
-void UBDC_InteractionSubsystem::GetAllReceiversField(TArray<UInteractionReceiverComponent*>& Receivers)
+void UBDC_InteractionSubsystem::GetAllReceiversField(TArray<UInteractionReceiverComponent*>& Receivers) const
 {
 	Receivers = ReceiversInField;
 }
 
-void UBDC_InteractionSubsystem::GetAllReceiversOfLevel(TArray<FInteractionReceivers>& Receivers)
+void UBDC_InteractionSubsystem::GetAllReceiversOfLevel(TArray<FInteractionReceivers>& Receivers) const
 {
 	Receivers = ReceiversOfLevel;
 }
 
-void UBDC_InteractionSubsystem::GetReceiverByTag(FGameplayTag OfReceiverTag, FInteractionReceivers& ReceiverData)
+void UBDC_InteractionSubsystem::GetReceiverByTag(FGameplayTag OfReceiverTag, FInteractionReceivers& ReceiverData) const
 {
 	for (const FInteractionReceivers& R : ReceiversOfLevel)
 	{
@@ -150,7 +206,7 @@ void UBDC_InteractionSubsystem::GetReceiverByTag(FGameplayTag OfReceiverTag, FIn
 	ReceiverData = FInteractionReceivers();
 }
 
-void UBDC_InteractionSubsystem::GetReceiverByName(FName OfReceiverName, FInteractionReceivers& ReceiverData)
+void UBDC_InteractionSubsystem::GetReceiverByName(FName OfReceiverName, FInteractionReceivers& ReceiverData) const
 {
 	for (const FInteractionReceivers& R : ReceiversOfLevel)
 	{
@@ -166,7 +222,7 @@ void UBDC_InteractionSubsystem::GetReceiverByName(FName OfReceiverName, FInterac
 	ReceiverData = FInteractionReceivers();
 }
 
-void UBDC_InteractionSubsystem::GetInstigatorByTag(FGameplayTag OfInstigatorTag, FInteractionReceivers& InstigatorData)
+void UBDC_InteractionSubsystem::GetInstigatorByTag(FGameplayTag OfInstigatorTag, FInteractionReceivers& InstigatorData) const
 {
 	for (const UInteractionInstigatorComponent* I : InstigatorsOfLevel)
 	{
@@ -180,7 +236,7 @@ void UBDC_InteractionSubsystem::GetInstigatorByTag(FGameplayTag OfInstigatorTag,
 	InstigatorData = FInteractionReceivers();
 }
 
-void UBDC_InteractionSubsystem::GetInstigatorByName(FName OfInstigatorName, FInteractionReceivers& InstigatorData)
+void UBDC_InteractionSubsystem::GetInstigatorByName(FName OfInstigatorName, FInteractionReceivers& InstigatorData) const
 {
 	for (UInteractionInstigatorComponent* I : InstigatorsOfLevel)
 	{
@@ -205,6 +261,7 @@ void UBDC_InteractionSubsystem::RemoveReceiver(UInteractionReceiverComponent* Re
 		return R.InteractionComponent == ReceiverComponent;
 	});
 	ReceiversInField.Remove(ReceiverComponent);
+	ReceiversInView.Remove(ReceiverComponent);
 }
 
 void UBDC_InteractionSubsystem::AddInstigator(UInteractionInstigatorComponent* NewInstigator)
@@ -221,3 +278,64 @@ void UBDC_InteractionSubsystem::RemoveInstigator(UInteractionInstigatorComponent
 	}
 }
 
+void UBDC_InteractionSubsystem::GetAllReceiversInView(TArray<FInteractionReceivers>& OutReceiversInView) const
+{
+	OutReceiversInView.Empty();
+	for (UInteractionReceiverComponent* Comp : ReceiversInView)
+	{
+		if (Comp)
+		{
+			FInteractionReceivers Data;
+			Data.InteractionActor = Comp->GetOwner();
+			Data.InteractionComponent = Comp;
+			OutReceiversInView.Add(Data);
+		}
+	}
+}
+
+void UBDC_InteractionSubsystem::CalcNextBest()
+{
+	if (ReceiversInView.Num() <= 1) return;
+
+	UInteractionReceiverComponent* OldBestReceiver = Cast<UInteractionReceiverComponent>(CurrentBestFittingReceiver.InteractionComponent);
+	if (OldBestReceiver)
+	{
+		OldBestReceiver->OnIsNotBestFitting.Broadcast();
+	}
+
+	CurrentBestReceiverIndex = (CurrentBestReceiverIndex + 1) % ReceiversInView.Num();
+	UInteractionReceiverComponent* NewBestReceiver = ReceiversInView[CurrentBestReceiverIndex];
+
+	if (NewBestReceiver)
+	{
+		NewBestReceiver->OnIsBestFitting.Broadcast();
+		CurrentBestFittingReceiver.InteractionComponent = NewBestReceiver;
+		CurrentBestFittingReceiver.InteractionActor = NewBestReceiver->GetOwner();
+	}
+}
+
+void UBDC_InteractionSubsystem::CalcPrevBest()
+{
+	if (ReceiversInView.Num() <= 1) return;
+
+	UInteractionReceiverComponent* OldBestReceiver = Cast<UInteractionReceiverComponent>(CurrentBestFittingReceiver.InteractionComponent);
+	if (OldBestReceiver)
+	{
+		OldBestReceiver->OnIsNotBestFitting.Broadcast();
+	}
+
+	CurrentBestReceiverIndex = (CurrentBestReceiverIndex - 1 + ReceiversInView.Num()) % ReceiversInView.Num();
+	UInteractionReceiverComponent* NewBestReceiver = ReceiversInView[CurrentBestReceiverIndex];
+
+	if (NewBestReceiver)
+	{
+		NewBestReceiver->OnIsBestFitting.Broadcast();
+		CurrentBestFittingReceiver.InteractionComponent = NewBestReceiver;
+		CurrentBestFittingReceiver.InteractionActor = NewBestReceiver->GetOwner();
+	}
+}
+
+void UBDC_InteractionSubsystem::GetCurrentBestFitting(FInteractionReceivers& BestFit) const
+{
+	BestFit = CurrentBestFittingReceiver;
+}

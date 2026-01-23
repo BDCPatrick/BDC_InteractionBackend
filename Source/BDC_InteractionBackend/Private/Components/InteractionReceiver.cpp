@@ -53,20 +53,32 @@ void UInteractionReceiverComponent::BeginPlay()
 		}
 	}
 
-	if (UBDC_InteractionSubsystem* Subsystem = GetWorld()->GetGameInstance()->GetSubsystem<UBDC_InteractionSubsystem>())
+	if (const UWorld* World = GetWorld())
 	{
-		FInteractionReceivers NewReceiver;
-		NewReceiver.InteractionActor = GetOwner();
-		NewReceiver.InteractionComponent = this;
-		Subsystem->AddReceiver(NewReceiver);
+		if (const UGameInstance* GI = World->GetGameInstance())
+		{
+			if (UBDC_InteractionSubsystem* Subsystem = GI->GetSubsystem<UBDC_InteractionSubsystem>())
+			{
+				FInteractionReceivers NewReceiver;
+				NewReceiver.InteractionActor = GetOwner();
+				NewReceiver.InteractionComponent = this;
+				Subsystem->AddReceiver(NewReceiver);
+			}
+		}
 	}
 }
 
 void UInteractionReceiverComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	if (UBDC_InteractionSubsystem* Subsystem = GetWorld()->GetGameInstance()->GetSubsystem<UBDC_InteractionSubsystem>())
+	if (const UWorld* World = GetWorld())
 	{
-		Subsystem->RemoveReceiver(this);
+		if (const UGameInstance* GI = World->GetGameInstance())
+		{
+			if (UBDC_InteractionSubsystem* Subsystem = GI->GetSubsystem<UBDC_InteractionSubsystem>())
+			{
+				Subsystem->RemoveReceiver(this);
+			}
+		}
 	}
 
 	Super::EndPlay(EndPlayReason);

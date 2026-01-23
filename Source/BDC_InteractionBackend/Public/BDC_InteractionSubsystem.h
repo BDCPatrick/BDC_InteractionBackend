@@ -57,7 +57,16 @@ private:
 	FInteractionReceivers LastInteractedWith;
 	
 	UPROPERTY()
+	FInteractionReceivers CurrentBestFittingReceiver;
+	
+	UPROPERTY()
 	TArray<UInteractionReceiverComponent*> ReceiversInField;
+
+	UPROPERTY()
+	TArray<UInteractionReceiverComponent*> ReceiversInView;
+
+	UPROPERTY()
+	int32 CurrentBestReceiverIndex = 0;
 	
 	UPROPERTY()
 	TArray<FInteractionReceivers> ReceiversOfLevel;
@@ -71,17 +80,22 @@ public:
 	FOnInteractionFired OnInteractionFired;
 
 	void SetInstigator(UInteractionInstigatorComponent* NewInstigator);
-	void GetLastInteraction(FInteractionReceivers& LastReceiver);
+	void GetLastInteraction(FInteractionReceivers& LastReceiver) const;
 	void InjectInteraction();
 	void UpdateInteractions(FVector InstigatorLocation, FRotator InstigatorRotation);
-	void GetAllReceiversField(TArray<UInteractionReceiverComponent*>& Receivers);
-	void GetAllReceiversOfLevel(TArray<FInteractionReceivers>& Receivers);
-	void GetReceiverByTag(FGameplayTag OfReceiverTag, FInteractionReceivers& ReceiverData);
-	void GetReceiverByName(FName OfReceiverName, FInteractionReceivers& ReceiverData);
-	void GetInstigatorByTag(FGameplayTag OfInstigatorTag, FInteractionReceivers& InstigatorData);
-	void GetInstigatorByName(FName OfInstigatorName, FInteractionReceivers& InstigatorData);
+	void GetAllReceiversField(TArray<UInteractionReceiverComponent*>& Receivers) const;
+	void GetAllReceiversOfLevel(TArray<FInteractionReceivers>& Receivers) const;
+	void GetReceiverByTag(FGameplayTag OfReceiverTag, FInteractionReceivers& ReceiverData) const;
+	void GetReceiverByName(FName OfReceiverName, FInteractionReceivers& ReceiverData) const;
+	void GetInstigatorByTag(FGameplayTag OfInstigatorTag, FInteractionReceivers& InstigatorData) const;
+	void GetInstigatorByName(FName OfInstigatorName, FInteractionReceivers& InstigatorData) const;
 	void AddReceiver(FInteractionReceivers NewReceiver);
 	void RemoveReceiver(UInteractionReceiverComponent* ReceiverComponent);
 	void AddInstigator(UInteractionInstigatorComponent* NewInstigator);
 	void RemoveInstigator(UInteractionInstigatorComponent* InstigatorComponent);
+
+	void GetAllReceiversInView(TArray<FInteractionReceivers>& OutReceiversInView) const;
+	void CalcNextBest();
+	void CalcPrevBest();
+	void GetCurrentBestFitting(FInteractionReceivers& BestFit) const;
 };

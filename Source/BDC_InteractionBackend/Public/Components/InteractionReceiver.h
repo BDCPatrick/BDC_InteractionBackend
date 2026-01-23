@@ -17,6 +17,8 @@
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnReceivedInteraction, AActor*, OfInstigator, FName, OfInstigatorName, FGameplayTagContainer, OfInstigatedTags);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnEntersInteractionField, AActor*, OfInstigator, FName, OfInstigatorName);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnLeavesInteractionField, AActor*, OfInstigator, FName, OfInstigatorName);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnIsBestFitting);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnIsNotBestFitting);
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class BDC_INTERACTIONBACKEND_API UInteractionReceiverComponent : public UActorComponent
@@ -36,6 +38,10 @@ public:
 	FOnEntersInteractionField OnEntersInteractionField;
 	UPROPERTY(BlueprintAssignable, Category = "BDC|Interaction|Dispatchers")
 	FOnLeavesInteractionField OnLeavesInteractionField;
+	UPROPERTY(BlueprintAssignable, Category = "BDC|Interaction|Dispatchers")
+	FOnIsBestFitting OnIsBestFitting;
+	UPROPERTY(BlueprintAssignable, Category = "BDC|Interaction|Dispatchers")
+	FOnIsNotBestFitting OnIsNotBestFitting;
 	
 	UPROPERTY(BlueprintReadWrite, Editanywhere, Category = "BDC|Interaction|Receiver")
 	FName NameOfInteractionComponent = FName("CapsuleComponent");
@@ -47,6 +53,8 @@ public:
 	FGameplayTagContainer OnlyInteractOnTag = FGameplayTagContainer();
 	UPROPERTY(BlueprintReadWrite, Editanywhere, Category = "BDC|Interaction|Receiver")
 	bool bAlltagsHaveToBepresent = false;
+	UPROPERTY(BlueprintReadWrite, Editanywhere, Category = "BDC|Interaction|Receiver")
+	float ReceiverRadius = 25.0f;
 	
 	UFUNCTION(BlueprintCallable, Category="BDC|Interaction|Event")
 	FTransform GetReceiverTransform();

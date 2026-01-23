@@ -18,10 +18,40 @@ UInteractionInstigatorComponent::UInteractionInstigatorComponent()
 	SetIsReplicatedByDefault(true);
 }
 
+FTransform UInteractionInstigatorComponent::GetInstigatorTransform()
+{
+	if (InstigatorComponent)
+	{
+		return InstigatorComponent->GetComponentTransform();
+	}
+
+	if (const AActor* Owner = GetOwner())
+	{
+		return Owner->GetActorTransform();
+	}
+
+	return FTransform::Identity;
+}
+
 void UInteractionInstigatorComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
+	if (const AActor* Owner = GetOwner())
+	{
+		TArray<USceneComponent*> SceneComponents;
+		Owner->GetComponents<USceneComponent>(SceneComponents);
+
+		for (USceneComponent* Component : SceneComponents)
+		{
+			if (Component && Component->GetFName() == NameOfInteractionComponent)
+			{
+				InstigatorComponent = Component;
+				break;
+			}
+		}
+	}
+	
 	if (const UWorld* World = GetWorld())
 	{
 		if (const UGameInstance* GI = World->GetGameInstance())

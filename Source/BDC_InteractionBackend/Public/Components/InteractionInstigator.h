@@ -22,16 +22,23 @@ class BDC_INTERACTIONBACKEND_API UInteractionInstigatorComponent : public UActor
 		GENERATED_BODY()
 	
 private:
+	UPROPERTY()
+	USceneComponent* InstigatorComponent;
 
 public:
 	UInteractionInstigatorComponent();
 
+	UPROPERTY(BlueprintReadWrite, Editanywhere, Category = "BDC|Interaction|Receiver")
+	FName NameOfInteractionComponent = FName("CapsuleComponent");
 	UPROPERTY(BlueprintReadWrite, Editanywhere, Category = "BDC|Interaction|Instigator")
 	FName NameOfInstigator = FName("Nancy");
 	UPROPERTY(BlueprintReadWrite, Editanywhere, Category = "BDC|Interaction|Instigator")
 	FGameplayTag TagOfInstigator = FGameplayTag();
 	UPROPERTY(BlueprintReadWrite, Editanywhere, Category = "BDC|Interaction|Instigator")
 	FGameplayTagContainer InstigatingTags = FGameplayTagContainer();
+	
+	UFUNCTION(BlueprintCallable, Category="BDC|Interaction|Event")
+	FTransform GetInstigatorTransform();
 
 protected:
 	virtual void BeginPlay() override;
